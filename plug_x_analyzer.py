@@ -3,6 +3,7 @@ import re
 import struct
 
 import lznt1
+import pefile
 
 
 def read_file(file_path):
@@ -37,6 +38,16 @@ def xor_decrypt(data):
         result += bytes([char ^ ((key + key_a + key_b + key_c) & 0x000000FF)])
 
     return result
+    
+
+def get_data_section(file_path):
+    """
+    Locate configuration section
+    
+    :param file_path:
+    :return:
+    """
+    return pefile.PE(file_path).sections[2].get_data()
 
 
 def main(file_path):
@@ -65,11 +76,30 @@ def main(file_path):
     # Extract DLL
     print('[+] Decrypting PlugX DLL')
     dll_data = lznt1.decompress(xor_decrypt(sc[dll_ptr:dll_ptr + size])[16:])
+    
 
-    # Saving config
+    # Saving DLL
     print('[+] Saving PlugX DLL')
     with open('plug_x_dll.bin', 'wb') as f:
         f.write(dll_data)
+
+    # Extracting embedded DLL
+    print('[+] Extracting embedded DLL (Privilege Escalation)')
+    data = get_data_section('plug_x_dll.bin')
+    index = 0
+    
+    while True:
+        tmp = xor_decrypt(data[index:index + 512])
+        
+        if b'This' in tmp:
+            break
+
+        index += 1
+
+    embedded_dll = lznt1.decompress(xor_decrypt(data[index:index + 2921])[16:])
+    with open('plug_x_embedded_dll.bin', 'wb') as f:
+        f.write(embedded_dll)
+    
 
     # Extract config
     print('[+] Decrypting attack configuration')
