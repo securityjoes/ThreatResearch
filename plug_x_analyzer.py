@@ -99,7 +99,6 @@ def main(file_path):
     embedded_dll = lznt1.decompress(xor_decrypt(data[index:index + 2921])[16:])
     with open('plug_x_embedded_dll.bin', 'wb') as f:
         f.write(embedded_dll)
-    
 
     # Extract config
     print('[+] Decrypting attack configuration')
