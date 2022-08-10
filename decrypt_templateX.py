@@ -17,8 +17,7 @@ def getargs():
     parser.add_argument("path", help="Path to encrypted file.")
     return parser.parse_args()
 
-
-def decryptExe(fileName):
+def decryptFile(fileName):
     print("[+] Reading templateX ...")
     byteToModify = bytearray(open(fileName, 'rb').read())
     result = bytes([])
@@ -41,14 +40,13 @@ def decryptExe(fileName):
     savedFilename = fileName + '_decrypted.dll'
     print("[+] Saving file ", savedFilename)
     open(savedFilename, 'wb').write(bytesDecompressed)
-
     
 def main():
 
     args = getargs()
 
     print ("[+] Started...")
-    decryptExe(args.path) 
+    decryptFile(args.path) 
     print ("[+] Finished!")
     pass
 
