@@ -2,13 +2,12 @@
 
 #-------------------------------------------------------------------------------
 # Name:        decrypt_templateX
-# Purpose:     Decrypt from templateX payload used by APT-Q-27
+# Purpose:     Decrypt templateX payload used by APT-Q-27
 #
 # Author:      Charles Lomboni
 # Created:     10/08/2022
 # Company:     Security Joes
 #-------------------------------------------------------------------------------
-
 
 import argparse
 import lznt1
@@ -31,12 +30,19 @@ def decryptExe(fileName):
     for i in range(bytesLen):
         result += bytes([(((byteToModify[i]) - 0x7A) & 0xFF) ^ 0x19])
 
-    
     print("[+] Decompressing ...")
-    bytesDecompressed = lznt1.decompress(result[1763:])
-    print("[+] Saving file ...")
-    open(fileName + '_decrypted.dll', 'wb').write(bytesDecompressed)
+    for j in range(512, 2048):
+        pe_hdr = result[j:j + 2]
 
+        if pe_hdr == b'MZ':
+            break
+    
+    bytesDecompressed = lznt1.decompress(result[j - 3:])
+    savedFilename = fileName + '_decrypted.dll'
+    print("[+] Saving file ", savedFilename)
+    open(savedFilename, 'wb').write(bytesDecompressed)
+
+    
 def main():
 
     args = getargs()
@@ -44,7 +50,6 @@ def main():
     print ("[+] Started...")
     decryptExe(args.path) 
     print ("[+] Finished!")
-
     pass
 
 if __name__ == '__main__':
