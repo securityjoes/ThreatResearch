@@ -211,6 +211,7 @@ def main(file_path):
     """
     print(f'[+] Analyzing shellcode at "{file_path}"')
     sc = read_file(file_path)
+
     try:
         x64_analysis(sc)
     except:
