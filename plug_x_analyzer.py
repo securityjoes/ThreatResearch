@@ -211,10 +211,11 @@ def main(file_path):
     """
     print(f'[+] Analyzing shellcode at "{file_path}"')
     sc = read_file(file_path)
-
     try:
+        print(f'[+] Attempting x64 analysis')
         x64_analysis(sc)
     except:
+        print(f'[+] x64 analysis failed! Now running x32 analysis')
         x32_analysis(sc)
 
 
