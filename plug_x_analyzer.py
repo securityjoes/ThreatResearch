@@ -5,6 +5,8 @@ import struct
 import lznt1
 import pefile
 
+from capstone import *
+
 
 def read_file(file_path):
     """
@@ -30,16 +32,17 @@ def save_file(file_path, buffer):
         f.write(buffer)
 
 
-def brute_force_location(buffer, target, window=512):
+def brute_force_location(buffer, target, start=0, window=512):
     """
     Given an encrypted buffer, the window and the target word return the starting address of the encrypted data
 
     :param buffer:
     :param target:
+    :param start:
     :param window:
     :return:
     """
-    index = 0
+    index = start
 
     while True:
         tmp = xor_decrypt(buffer[index:index + window])
@@ -61,21 +64,20 @@ def brute_force_pe_location(buffer):
     return brute_force_location(buffer, b'This')
 
 
-def brute_force_pe_extraction(buffer, address):
+def brute_force_pe_extraction(buffer, address, size=2500):
     """
     Given a buffer and the PE start address returns the decrypted PE
 
     :param buffer:
-	:param address:
+    :param address:
+    :param size:
     :return:
     """
-    stop = 2500
-
     while True:
         try:
-            return lznt1.decompress(xor_decrypt(buffer[address:address + stop])[16:])
+            return lznt1.decompress(xor_decrypt(buffer[address:address + size])[16:])
         except ValueError:
-            stop += 1
+            size += 1
 
 
 def xor_decrypt(buffer):
@@ -154,7 +156,7 @@ def x64_analysis(sc):
 
     print('[+] C2 servers:')
     for server in servers:
-        port = struct.unpack("<I", config_data[server.start() - 2:server.start()] + b"\x00\x00")[0]
+        port = struct.unpack('<I', config_data[server.start() - 2:server.start()] + b'\x00\x00')[0]
         print(f'\t[-] {config_data[server.start():server.end()].decode()}:{port}')
 
 
@@ -172,11 +174,25 @@ def x32_analysis(sc):
     # Find DLL size
     print('[+] Extracting size of the encrypted DLL')
     size_index = dll_ptr - 9
-    size = struct.unpack('<I', sc[size_index:size_index + 4])[0]
+    dll_size = struct.unpack('<I', sc[size_index:size_index + 4])[0]
+    flag_old_version = False
+
+    if 100000 < dll_size > 300000:
+        # Brute-forced size
+        try:
+            main_index = sc.index(b'\xe8\x01', 0, 2048)
+
+            size_index = main_index - 23
+            dll_size = struct.unpack('<I', sc[size_index:size_index + 4])[0]
+            flag_old_version = True
+        except ValueError:
+            print('[+] Cleaning shellcode')
+            x32_analysis(x32_clean_shellcode(sc))
+            exit()
 
     # Extract DLL
     print('[+] Decrypting PlugX DLL')
-    dll_data = lznt1.decompress(xor_decrypt(sc[dll_ptr:dll_ptr + size])[16:])
+    dll_data = lznt1.decompress(xor_decrypt(sc[dll_ptr:dll_ptr + dll_size])[16:])
 
     # Saving DLL
     print('[+] Saving PlugX DLL')
@@ -185,22 +201,63 @@ def x32_analysis(sc):
     # Extracting embedded DLL
     print('[+] Extracting embedded DLL (Privilege Escalation)')
     section_data = get_data_section('plug_x_dll.bin')
-    embedded_dll_data = brute_force_pe_extraction(section_data, brute_force_pe_location(section_data))
+    embedded_dll_ptr = brute_force_pe_location(section_data)
+    embedded_dll_data = brute_force_pe_extraction(section_data, embedded_dll_ptr, 500 if flag_old_version else 2500)
     save_file('plug_x_embedded_dll.bin', embedded_dll_data)
 
     # Extract config
     print('[+] Decrypting attack configuration')
     config_size = 5388
-    confid_ptr = brute_force_location(sc, b'HTTP', config_size)
-    config_data = xor_decrypt(sc[confid_ptr:confid_ptr + config_size])
+    config_ptr = brute_force_location(sc, b'HTTP', dll_ptr + dll_size if config_size > dll_ptr else 0, config_size)
+    config_data = xor_decrypt(sc[config_ptr:config_ptr + config_size])
     save_file('config.bin', config_data)
 
     servers = re.finditer(b'(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]', config_data)
 
     print('[+] C2 servers:')
     for server in servers:
-        port = struct.unpack("<I", config_data[server.start() - 2:server.start()] + b"\x00\x00")[0]
+        port = struct.unpack('<I', config_data[server.start() - 2:server.start()] + b'\x00\x00')[0]
         print(f'\t[-] {config_data[server.start():server.end()].decode()}:{port}')
+
+
+def get_sc_encryption_values(buffer):
+    """
+    Gets x86 assembly instructions
+
+    :param buffer:
+    :return:
+    """
+    disassembler = Cs(CS_ARCH_X86, CS_MODE_32)
+    add_value, xor_value, sub_value = 0, 0, 0
+
+    for x in disassembler.disasm(buffer, 0):
+        if 'byte ptr' in x.op_str:
+            if x.mnemonic == 'add':
+                add_value = int(x.op_str.split(',')[1], 16)
+            elif x.mnemonic == 'xor':
+                xor_value = int(x.op_str.split(',')[1], 16)
+            elif x.mnemonic == 'sub':
+                sub_value = int(x.op_str.split(',')[1], 16)
+
+        # Exit loop if all values were extracted
+        if add_value != 0 and xor_value != 0 and sub_value != 0:
+            break
+    return add_value, xor_value, sub_value
+
+
+def x32_clean_shellcode(sc):
+    """
+    Given an encrypted shellcode returns the unprotected version
+
+    :param sc:
+    :return:
+    """
+    add_value, xor_value, sub_value = get_sc_encryption_values(sc[:0x200])
+    result = bytearray([])
+
+    for char in sc[:0x5E8]:
+        result += bytes([((((char + add_value) & 0xFF) ^ xor_value) - sub_value) & 0xFF])
+    return result + sc[0x5E8:]
 
 
 def main(file_path):
