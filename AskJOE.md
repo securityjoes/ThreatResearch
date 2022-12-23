@@ -1,4 +1,4 @@
-# ThreatResearch
+# AskJOE
 
 ## What is AskJOE?
 This is a Ghidra plugin that calls [OPENAI](https://openai.com/) to give meaning to decompiled functions. It was based on the [Gepetto](https://github.com/JusticeRage/Gepetto) idea.
