@@ -8,6 +8,7 @@ This one is much more simple and instead work in IDA Pro we can use it to get so
 ![AskJOE Running](/imgs/AskJOE-running.png "AskJOE Running")
 
 ## Dependencies
+- Requests: `pip install requests`
 - [Python3](https://www.python.org/downloads/)
 - [Ghidrathon](https://github.com/mandiant/Ghidrathon)
 
