@@ -22,3 +22,8 @@ Remcos can be used for surveillance and penetration testing purposes, and in som
 > Decrypt templateX payload used by APT-Q-27
 
 [Read more](https://www.ctfiot.com/40522.html)
+
+### Redline Stealer
+> RedLine Stealer is a malware available on underground forums for sale apparently as standalone ($100/$150 depending on the version) or also on a subscription basis ($100/month). This malware harvests information from browsers such as saved credentials, autocomplete data, and credit card information. A system inventory is also taken when running on a target machine, to include details such as the username, location data, hardware configuration, and information regarding installed security software. More recent versions of RedLine added the ability to steal cryptocurrency. FTP and IM clients are also apparently targeted by this family, and this malware has the ability to upload and download files, execute commands, and periodically send back information about the infected computer.
+
+[Read more](https://malpedia.caad.fkie.fraunhofer.de/details/win.redline_stealer)
